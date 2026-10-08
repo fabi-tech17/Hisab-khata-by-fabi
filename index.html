@@ -705,8 +705,8 @@ const T = {
   nextConsumptionDateLabel: { en:'Next Consumption Date', bn:'পরবর্তী সেবনের তারিখ' },
   consumptionPcsLabel: { en:'Consumption (pcs)', bn:'সেবনের পরিমাণ (পিস)' },
   consumptionAmountLabel: { en:'Consumption Amount', bn:'সেবনের খরচ' },
-  lastThreeMonthIncome: { en:'Last Three Month Income', bn:'গত তিন মাসের আয়' },
-  lastThreeMonthExpense: { en:'Last Three Month Expense', bn:'গত তিন মাসের খরচ' },
+  lastThreeMonthIncome: { en:'Last Four Month Income', bn:'গত চার মাসের আয়' },
+  lastThreeMonthExpense: { en:'Last Four Month Expense', bn:'গত চার মাসের খরচ' },
   lastFourMonthSummaryTitle: { en:'Last Four Month Summary', bn:'গত চার মাসের সারসংক্ষেপ' },
   balanceRowLabel: { en:'Balance', bn:'ব্যালেন্স' },
   confirmDeleteMedicineTitle: { en:'Delete this medicine?', bn:'ঔষধ মুছে ফেলবেন?' },
@@ -801,7 +801,7 @@ function renderPwConfirmModal(){
         <p style="font-size:13px; color:var(--ink-soft); margin:-8px 0 16px 0;">${t('confirmWithPasswordDesc')}</p>
         <div class="field">
           <label>${t('newPasswordLabel')}</label>
-          <input type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.entry)}" oninput="state.pwConfirmModal.entry=this.value.replace(/\\D/g,'').slice(0,4); render();">
+          <input id="pwconfirm-entry-input" type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.entry)}" oninput="state.pwConfirmModal.entry=this.value.replace(/\\D/g,'').slice(0,4); render();">
         </div>
         <div class="pin-error">${m.error||''}</div>
         <div class="sheet-actions">
@@ -1348,7 +1348,7 @@ function renderLastThreeMonthsCard(kind){
   const now = new Date();
   const MONTHS = appLang==='en' ? MONTHS_EN : MONTHS_BN;
   const months = [];
-  for(let i=0;i<3;i++){
+  for(let i=0;i<4;i++){
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
     months.push({ key: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), label: MONTHS[d.getMonth()]+'-'+String(d.getFullYear()).slice(-2) });
   }
@@ -1826,11 +1826,11 @@ function renderIncomeExpenseBarChart(){
     bars += `<rect x="${ex.toFixed(1)}" y="${ey.toFixed(1)}" width="${barW.toFixed(1)}" height="${eh.toFixed(1)}" fill="var(--khoiri)" rx="1"/>`;
     if(incomeVals[i] > 0){
       const tx = ix + barW/2 + 2.5;
-      bars += `<text x="0" y="0" font-size="13" fill="#fff" text-anchor="start" transform="translate(${tx.toFixed(1)},${(baseline-3).toFixed(1)}) rotate(-90)">${Math.round(incomeVals[i]).toLocaleString('en-IN')}</text>`;
+      bars += `<text x="0" y="0" font-size="11" fill="#fff" text-anchor="start" transform="translate(${tx.toFixed(1)},${(baseline-3).toFixed(1)}) rotate(-90)">${Math.round(incomeVals[i]).toLocaleString('en-IN')}</text>`;
     }
     if(expenseVals[i] > 0){
       const tx = ex + barW/2 + 2.5;
-      bars += `<text x="0" y="0" font-size="13" fill="#fff" text-anchor="start" transform="translate(${tx.toFixed(1)},${(baseline-3).toFixed(1)}) rotate(-90)">${Math.round(expenseVals[i]).toLocaleString('en-IN')}</text>`;
+      bars += `<text x="0" y="0" font-size="11" fill="#fff" text-anchor="start" transform="translate(${tx.toFixed(1)},${(baseline-3).toFixed(1)}) rotate(-90)">${Math.round(expenseVals[i]).toLocaleString('en-IN')}</text>`;
     }
     bars += `<text x="${(gx+groupW/2).toFixed(1)}" y="${height-8}" font-size="7.5" fill="#6B6055" text-anchor="middle">${m.label}</text>`;
   });
@@ -2332,7 +2332,7 @@ function renderPwModal(){
           <p style="font-size:13px; color:var(--ink-soft); margin:-8px 0 16px 0;">${isAdminReset ? t('adminResetDesc') : t('oldPasswordDesc')}</p>
           <div class="field">
             <label>${isAdminReset ? t('yourAdminPasswordLabel') : t('oldPasswordLabel')}</label>
-            <input type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.old)}" oninput="state.pwModal.old=this.value.replace(/\\D/g,'').slice(0,4); render();">
+            <input id="pwmodal-old-input" type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.old)}" oninput="state.pwModal.old=this.value.replace(/\\D/g,'').slice(0,4); render();">
           </div>
           <div class="pin-error">${m.error||''}</div>
           <div class="sheet-actions">
@@ -2348,11 +2348,11 @@ function renderPwModal(){
         <h2 class="serif">${isAdminReset ? `"${escapeHtml(m.targetUsername)}" — ${t('newPasswordTitle')}` : t('newPasswordTitle')}</h2>
         <div class="field">
           <label>${t('newPasswordLabel')}</label>
-          <input type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.n1)}" oninput="state.pwModal.n1=this.value.replace(/\\D/g,'').slice(0,4); render();">
+          <input id="pwmodal-n1-input" type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.n1)}" oninput="state.pwModal.n1=this.value.replace(/\\D/g,'').slice(0,4); render();">
         </div>
         <div class="field">
           <label>${t('newPasswordAgainLabel')}</label>
-          <input type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.n2)}" oninput="state.pwModal.n2=this.value.replace(/\\D/g,'').slice(0,4); render();">
+          <input id="pwmodal-n2-input" type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.n2)}" oninput="state.pwModal.n2=this.value.replace(/\\D/g,'').slice(0,4); render();">
         </div>
         <div class="pin-error">${m.error||''}</div>
         <div class="sheet-actions">
@@ -2408,15 +2408,15 @@ function renderNewUserModal(){
         <h2 class="serif">${m.role==='admin' ? t('createNewAdminTitle') : t('createNewUserTitle')}</h2>
         <div class="field">
           <label>${t('usernameLabel')}</label>
-          <input type="text" value="${escapeHtml(m.username)}" oninput="state.newUserModal.username=this.value; render();" placeholder="${t('usernamePlaceholderExample')}">
+          <input id="newuser-username-input" type="text" value="${escapeHtml(m.username)}" oninput="state.newUserModal.username=this.value; render();" placeholder="${t('usernamePlaceholderExample')}">
         </div>
         <div class="field">
           <label>${t('newPasswordLabel')}</label>
-          <input type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.p1)}" oninput="state.newUserModal.p1=this.value.replace(/\\D/g,'').slice(0,4); render();">
+          <input id="newuser-p1-input" type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.p1)}" oninput="state.newUserModal.p1=this.value.replace(/\\D/g,'').slice(0,4); render();">
         </div>
         <div class="field">
           <label>${t('newPasswordAgainLabel')}</label>
-          <input type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.p2)}" oninput="state.newUserModal.p2=this.value.replace(/\\D/g,'').slice(0,4); render();">
+          <input id="newuser-p2-input" type="password" inputmode="numeric" maxlength="4" value="${escapeHtml(m.p2)}" oninput="state.newUserModal.p2=this.value.replace(/\\D/g,'').slice(0,4); render();">
         </div>
         ${m.lockRole ? `
         <div class="field">
@@ -3530,6 +3530,10 @@ function startSyncPolling(){
 
 function render(){
   const app = document.getElementById('app');
+  const activeEl = document.activeElement;
+  const focusId = (activeEl && activeEl.id && app.contains(activeEl)) ? activeEl.id : null;
+  const focusSelStart = (focusId && typeof activeEl.selectionStart === 'number') ? activeEl.selectionStart : null;
+  const focusSelEnd = (focusId && typeof activeEl.selectionEnd === 'number') ? activeEl.selectionEnd : null;
   let headerTitle = t('appTitle');
   let headerSub = '';
   let backBtn = '';
@@ -3626,6 +3630,16 @@ function render(){
     ${renderNewUserModal()}
     ${renderPwConfirmModal()}
   `;
+
+  if(focusId){
+    const toFocus = document.getElementById(focusId);
+    if(toFocus){
+      toFocus.focus();
+      if(focusSelStart !== null && toFocus.setSelectionRange){
+        try{ toFocus.setSelectionRange(focusSelStart, focusSelEnd); }catch(e){}
+      }
+    }
+  }
 }
 
 (async function init(){
