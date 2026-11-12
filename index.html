@@ -357,6 +357,7 @@
   }
   .calc-eq-btn:active{background:var(--maroon-dark);}
 
+  .offline-banner{ background:#FFF3CD; color:#7A5A00; text-align:center; padding:6px 10px; font-size:12px; border-radius:6px; margin-bottom:10px; border:1px solid #E8D48A; }
   .toast{
     position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
     background:var(--ink); color:#F3E9DC; padding:10px 18px; border-radius:20px;
@@ -601,6 +602,11 @@ const T = {
   expenseAdded: { en:'Expense added', bn:'খরচ যোগ হয়েছে' },
   expenseUpdated: { en:'Expense updated', bn:'খরচ পরিবর্তন হয়েছে' },
   reportDownloaded: { en:'Report downloaded — open the file and use Print > Save as PDF', bn:'রিপোর্ট ডাউনলোড হয়েছে — ফাইলটি খুলে Print > Save as PDF করুন' },
+  offlineModeToast: { en:'Offline mode — showing saved data (view only)', bn:'অফলাইন মোড — সংরক্ষিত ডেটা দেখাচ্ছে (শুধু দেখা যাবে)' },
+  offlineNoSave: { en:'Offline — changes cannot be saved', bn:'অফলাইনে পরিবর্তন সংরক্ষণ করা যাবে না' },
+  offlineBanner: { en:'Offline mode: view only', bn:'অফলাইন মোড: শুধু দেখা যাবে' },
+  appUpdateLink: { en:'App update link', bn:'অ্যাপ আপডেট লিংক' },
+  appUpdateLinkDesc: { en:'Set the GitHub page link used for automatic updates', bn:'অটো আপডেটের জন্য GitHub পেজের লিংক সেট করুন' },
   checkInternet: { en:'Check your internet connection', bn:'ইন্টারনেট সংযোগ পরীক্ষা করুন' },
   enterUsernameFirst: { en:'Please enter your username first', bn:'আগে ইউজারনেম লিখুন' },
   wrongLoginErr: { en:'Username or password is incorrect, try again', bn:'ইউজারনেম অথবা পাসওয়ার্ড সঠিক নয়, আবার চেষ্টা করুন' },
@@ -845,6 +851,28 @@ function fmtDate(iso){
 const FB_BASE = "https://hisab-khata-fabi-default-rtdb.asia-southeast1.firebasedatabase.app";
 const FB_API_KEY = "AIzaSyAW59wLxDrloAF_90WMANd3bxvhCcXKKnI";
 let fbAuth = { idToken: null, refreshToken: null, expiresAt: 0 };
+let offlineMode = false;
+function cacheSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+function cacheGet(key){ try{ const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
+function dataCacheKey(){ return 'hisabKhataDataCache::' + dataPath(); }
+function fetchT(url, opts, ms){
+  ms = ms || 10000;
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), ms);
+  return fetch(url, Object.assign({}, opts || {}, { signal: ctl.signal })).finally(()=>clearTimeout(timer));
+}
+function assignData(parsed){
+  parsed = parsed || {};
+  data.persons = parsed.persons || [];
+  data.transactions = parsed.transactions || [];
+  data.income = parsed.income || [];
+  data.expenses = parsed.expenses || [];
+  data.expenseCategories = parsed.expenseCategories || [];
+  data.incomeCategories = parsed.incomeCategories || [];
+  data.ageEntries = parsed.ageEntries || [];
+  data.healthProfiles = parsed.healthProfiles || [];
+  data.medicines = parsed.medicines || [];
+}
 
 async function ensureFirebaseAuth(){
   const now = Date.now();
@@ -853,7 +881,7 @@ async function ensureFirebaseAuth(){
   }
   if(fbAuth.refreshToken){
     try{
-      const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_API_KEY}`, {
+      const res = await fetchT(`https://securetoken.googleapis.com/v1/token?key=${FB_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `grant_type=refresh_token&refresh_token=${fbAuth.refreshToken}`
@@ -867,7 +895,7 @@ async function ensureFirebaseAuth(){
       }
     }catch(e){}
   }
-  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FB_API_KEY}`, {
+  const res = await fetchT(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FB_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ returnSecureToken: true })
@@ -882,14 +910,14 @@ async function ensureFirebaseAuth(){
 
 async function fbGet(path){
   const token = await ensureFirebaseAuth();
-  const res = await fetch(`${FB_BASE}/${path}.json?auth=${token}`);
+  const res = await fetchT(`${FB_BASE}/${path}.json?auth=${token}`);
   if(!res.ok) throw new Error('fb get failed');
   return await res.json();
 }
 
 async function fbSet(path, value){
   const token = await ensureFirebaseAuth();
-  const res = await fetch(`${FB_BASE}/${path}.json?auth=${token}`, {
+  const res = await fetchT(`${FB_BASE}/${path}.json?auth=${token}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(value)
@@ -901,33 +929,22 @@ async function fbSet(path, value){
 async function loadData(){
   try{
     const parsed = await fbGet(dataPath());
-    if(parsed){
-      data.persons = parsed.persons || [];
-      data.transactions = parsed.transactions || [];
-      data.income = parsed.income || [];
-      data.expenses = parsed.expenses || [];
-      data.expenseCategories = parsed.expenseCategories || [];
-      data.incomeCategories = parsed.incomeCategories || [];
-      data.ageEntries = parsed.ageEntries || [];
-      data.healthProfiles = parsed.healthProfiles || [];
-      data.medicines = parsed.medicines || [];
-    }else{
-      data.persons = [];
-      data.transactions = [];
-      data.income = [];
-      data.expenses = [];
-      data.expenseCategories = [];
-      data.incomeCategories = [];
-      data.ageEntries = [];
-      data.healthProfiles = [];
-      data.medicines = [];
-    }
+    offlineMode = false;
+    cacheSet(dataCacheKey(), parsed || {});
+    assignData(parsed);
     migrateOldFlatEntries('expense');
     migrateOldFlatEntries('income');
     const consumed = processMedicineConsumption();
     if(consumed) await saveData();
   }catch(e){
-    showToast(t('loadFailedToast'));
+    const cached = cacheGet(dataCacheKey());
+    if(cached){
+      offlineMode = true;
+      assignData(cached);
+      showToast(t('offlineModeToast'));
+    }else{
+      showToast(t('loadFailedToast'));
+    }
   }
 }
 
@@ -951,8 +968,16 @@ function migrateOldFlatEntries(kind){
 }
 
 async function saveData(){
+  if(offlineMode){
+    showToast(t('offlineNoSave'));
+    const cached = cacheGet(dataCacheKey());
+    if(cached) assignData(cached);
+    render();
+    return;
+  }
   try{
     await fbSet(dataPath(), data);
+    cacheSet(dataCacheKey(), data);
   }catch(e){
     showToast(t('saveFailedToast'));
   }
@@ -2091,14 +2116,7 @@ ${bodyHtml}
 </body>
 </html>`;
   const blob = new Blob([fullHtml], {type:'text/html'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  downloadBlob(blob, filename);
   showToast(t('reportDownloaded'));
 }
 
@@ -2172,6 +2190,15 @@ function loadScriptOnce(url){
 }
 
 function downloadBlob(blob, filename){
+  if(window.AndroidBridge && typeof window.AndroidBridge.saveFile === 'function'){
+    const fr = new FileReader();
+    fr.onloadend = ()=>{
+      const b64 = String(fr.result).split(',')[1] || '';
+      window.AndroidBridge.saveFile(b64, filename, blob.type || 'application/octet-stream');
+    };
+    fr.readAsDataURL(blob);
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -2428,6 +2455,22 @@ function renderReportCard(){
     </div>`;
 }
 
+/* Android app: hardware back button (returns true if handled) */
+window.__androidBack = function(){
+  try{
+    if(!state.currentUser) return false;
+    const modals = ['pwConfirmModal','confirmModal','pwModal','newUserModal','txnModal','entryModal','ageModal','hpInfoModal','weightModal','medInfoModal','stockModal'];
+    for(const m of modals){
+      if(state[m]){ state[m] = null; render(); return true; }
+    }
+    if(state.personModal){ state.personModal = false; render(); return true; }
+    if(state.view === 'medicine'){ state.ageCategory = 'ms'; setView('agecalc'); return true; }
+    if(state.view === 'admin'){ setView('settings'); return true; }
+    if(state.view !== 'home'){ setView('home'); return true; }
+  }catch(e){}
+  return false;
+};
+
 function logout(){
   state.confirmModal = {
     title: t('confirmLogoutTitle'),
@@ -2456,9 +2499,17 @@ async function loadUsers(){
       await fbSet('hisabKhata/users', users);
     }
     lock.users = users;
+    offlineMode = false;
+    cacheSet('hisabKhataUsersCache', users);
   }catch(e){
-    lock.users = [];
-    lock.error = t('checkInternet');
+    const cachedUsers = cacheGet('hisabKhataUsersCache');
+    if(cachedUsers && cachedUsers.length){
+      lock.users = cachedUsers;
+      offlineMode = true;
+    }else{
+      lock.users = [];
+      lock.error = t('checkInternet');
+    }
   }
   lock.status = 'auth';
   try{
@@ -2468,7 +2519,15 @@ async function loadUsers(){
 }
 
 async function saveUsers(){
+  if(offlineMode){
+    showToast(t('offlineNoSave'));
+    const cachedUsers = cacheGet('hisabKhataUsersCache');
+    if(cachedUsers) lock.users = cachedUsers;
+    render();
+    return;
+  }
   await fbSet('hisabKhata/users', lock.users);
+  cacheSet('hisabKhataUsersCache', lock.users);
 }
 
 function setLockUsername(val){
@@ -3727,6 +3786,11 @@ function renderSettings(){
       <div class="person-card" style="border-left-color:var(--maroon); cursor:pointer;" onclick="openChangeMyPassword()">
         <div class="person-name">${t('changePassword')}</div>
       </div>
+      ${(window.AndroidBridge && typeof window.AndroidBridge.changeUpdateUrl === 'function') ? `
+      <div class="person-card" style="border-left-color:var(--loan-blue); cursor:pointer;" onclick="AndroidBridge.changeUpdateUrl()">
+        <div class="person-name">${t('appUpdateLink')}</div>
+        <div class="person-meta">${t('appUpdateLinkDesc')}</div>
+      </div>` : ''}
       ${isAdmin() ? `
       <div class="person-card" style="border-left-color:var(--maroon); cursor:pointer;" onclick="setView('admin')">
         <div class="person-name">${t('adminPanelLink')}</div>
@@ -3794,10 +3858,12 @@ function startSyncPolling(){
     if(modalOpen) return;
     try{
       const parsed = await fbGet(dataPath());
+      if(offlineMode){ offlineMode = false; cacheSet(dataCacheKey(), parsed || {}); render(); }
       const fresh = parsed || { persons: [], transactions: [], income: [], expenses: [], expenseCategories: [], incomeCategories: [], ageEntries: [], healthProfiles: [], medicines: [] };
       const freshStr = JSON.stringify({ persons: fresh.persons||[], transactions: fresh.transactions||[], income: fresh.income||[], expenses: fresh.expenses||[], expenseCategories: fresh.expenseCategories||[], incomeCategories: fresh.incomeCategories||[], ageEntries: fresh.ageEntries||[], healthProfiles: fresh.healthProfiles||[], medicines: fresh.medicines||[] });
       const currentStr = JSON.stringify({ persons: data.persons, transactions: data.transactions, income: data.income, expenses: data.expenses, expenseCategories: data.expenseCategories, incomeCategories: data.incomeCategories, ageEntries: data.ageEntries, healthProfiles: data.healthProfiles, medicines: data.medicines });
       if(freshStr !== currentStr){
+        cacheSet(dataCacheKey(), fresh);
         data.persons = fresh.persons || [];
         data.transactions = fresh.transactions || [];
         data.income = fresh.income || [];
@@ -3879,7 +3945,7 @@ function render(){
         </div>
       </div>
     </header>
-    <main>${mainHtml}</main>
+    <main>${offlineMode ? `<div class="offline-banner">${t('offlineBanner')}</div>` : ''}${mainHtml}</main>
     ${state.view==='home' && state.category==='loan' && canEdit() ? `<button class="fab-btn" onclick="openAddPerson()">+</button>` : ''}
     ${state.view==='home' && state.category==='income' && canEdit() ? `<button class="fab-btn" style="background:var(--green);" onclick="openQuickAddEntry('income')">+</button>` : ''}
     ${state.view==='home' && state.category==='expense' && canEdit() ? `<button class="fab-btn" style="background:var(--khoiri);" onclick="openQuickAddEntry('expense')">+</button>` : ''}
